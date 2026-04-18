@@ -1,32 +1,25 @@
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
+<html lang="en" data-bs-theme="light">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>SensAI PONYO Mission Control</title>
+    <title>SensAI PONYO Polar Research Station</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
 
     <style>
         :root {
-            --map-height: 430px;
-            --bg-0: #030712;
-            --bg-1: #07111f;
-            --bg-2: #0b1730;
-            --panel: rgba(10, 20, 38, .76);
-            --panel-strong: rgba(13, 28, 52, .92);
-            --line: rgba(99, 241, 255, .18);
-            --line-strong: rgba(99, 241, 255, .42);
-            --text: #e6f7ff;
-            --muted: #89a4bb;
-            --cyan: #4df3ff;
-            --blue: #4aa3ff;
-            --violet: #9d7cff;
-            --green: #43ff9f;
-            --amber: #ffd166;
-            --red: #ff5e7a;
-            --shadow-cyan: 0 0 28px rgba(77, 243, 255, .26);
+            --map-height: 520px;
+            --ice-0: #eaf7ff;
+            --ice-1: #f7fbff;
+            --navy: #071827;
+            --blue: #1a9cff;
+            --cyan: #00c2d8;
+            --green: #16b981;
+            --muted: #65768a;
+            --line: rgba(28, 91, 135, .16);
+            --shadow: 0 24px 80px rgba(9, 35, 56, .16);
         }
 
         * { box-sizing: border-box; }
@@ -34,12 +27,11 @@
         body {
             min-height: 100vh;
             margin: 0;
-            color: var(--text);
+            color: var(--navy);
             background:
-                    radial-gradient(circle at 15% 15%, rgba(77, 243, 255, .14), transparent 32rem),
-                    radial-gradient(circle at 82% 10%, rgba(157, 124, 255, .16), transparent 26rem),
-                    radial-gradient(circle at 58% 85%, rgba(67, 255, 159, .08), transparent 32rem),
-                    linear-gradient(135deg, var(--bg-0) 0%, var(--bg-1) 52%, #02040a 100%);
+                    radial-gradient(circle at 12% 10%, rgba(0, 194, 216, .24), transparent 32rem),
+                    radial-gradient(circle at 86% 4%, rgba(26, 156, 255, .18), transparent 30rem),
+                    linear-gradient(145deg, #102f49 0%, #dff5ff 38%, #f7fbff 100%);
             font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             overflow-x: hidden;
         }
@@ -49,154 +41,184 @@
             position: fixed;
             inset: 0;
             pointer-events: none;
-            z-index: 0;
             background-image:
-                    linear-gradient(rgba(77, 243, 255, .05) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(77, 243, 255, .05) 1px, transparent 1px);
-            background-size: 42px 42px;
-            mask-image: radial-gradient(circle at center, black 0%, transparent 82%);
+                    linear-gradient(rgba(255,255,255,.36) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255,255,255,.32) 1px, transparent 1px);
+            background-size: 56px 56px;
+            mask-image: linear-gradient(to bottom, rgba(0,0,0,.65), transparent 80%);
         }
 
-        body::after {
-            content: "";
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            z-index: 1;
-            background: repeating-linear-gradient(
-                    to bottom,
-                    rgba(255,255,255,.025),
-                    rgba(255,255,255,.025) 1px,
-                    transparent 1px,
-                    transparent 5px
-            );
-            mix-blend-mode: screen;
-            opacity: .28;
-        }
+        .app-shell { position: relative; z-index: 1; }
 
-        .app-shell { position: relative; z-index: 2; }
-
-        .mission-nav {
-            border-bottom: 1px solid var(--line);
-            background: rgba(3, 7, 18, .72);
+        .topbar {
+            border-bottom: 1px solid rgba(255,255,255,.32);
+            background: linear-gradient(90deg, rgba(7,24,39,.9), rgba(14,43,66,.72));
+            color: white;
             backdrop-filter: blur(18px);
-            box-shadow: 0 12px 42px rgba(0,0,0,.36);
+            box-shadow: 0 18px 70px rgba(4, 19, 32, .25);
         }
 
         .brand-kicker {
             font-size: .68rem;
-            letter-spacing: .26em;
-            color: var(--cyan);
+            letter-spacing: .22em;
             text-transform: uppercase;
+            color: #a6f4ff;
+            font-weight: 800;
         }
 
         .brand-title {
-            font-size: clamp(1.15rem, 2.6vw, 1.85rem);
-            font-weight: 800;
-            letter-spacing: .04em;
-            text-transform: uppercase;
-            text-shadow: 0 0 20px rgba(77, 243, 255, .42);
+            margin: 0;
+            font-size: clamp(1.25rem, 2.7vw, 2.2rem);
+            font-weight: 900;
+            letter-spacing: -.03em;
         }
 
-        .status-pill {
-            border: 1px solid var(--line-strong);
-            color: var(--text);
-            background: linear-gradient(135deg, rgba(77, 243, 255, .16), rgba(157, 124, 255, .12));
-            box-shadow: var(--shadow-cyan);
+        .refresh-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: .55rem;
+            padding: .62rem .9rem;
             border-radius: 999px;
-            padding: .55rem .9rem;
+            background: rgba(255,255,255,.13);
+            border: 1px solid rgba(255,255,255,.25);
+            color: white;
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-size: .78rem;
+            white-space: nowrap;
         }
 
-        .hero-grid {
+        .pulse-dot {
+            width: .55rem;
+            height: .55rem;
+            border-radius: 999px;
+            background: #31f7b7;
+            box-shadow: 0 0 0 .35rem rgba(49,247,183,.14), 0 0 18px rgba(49,247,183,.8);
+        }
+
+        .station-grid {
             display: grid;
-            grid-template-columns: 1.1fr .9fr;
+            grid-template-columns: minmax(0, 1.42fr) minmax(360px, .58fr);
             gap: 1rem;
         }
 
-        @media (max-width: 991.98px) {
-            .hero-grid { grid-template-columns: 1fr; }
-            :root { --map-height: 360px; }
+        .secondary-grid {
+            display: grid;
+            grid-template-columns: .86fr 1.14fr;
+            gap: 1rem;
         }
 
-        .panel {
+        @media (max-width: 1199.98px) {
+            .station-grid, .secondary-grid { grid-template-columns: 1fr; }
+            :root { --map-height: 430px; }
+        }
+
+        .ice-panel {
             position: relative;
             overflow: hidden;
-            border: 1px solid var(--line);
-            border-radius: 1.25rem;
+            border: 1px solid rgba(255,255,255,.62);
+            border-radius: 1.65rem;
             background:
-                    linear-gradient(160deg, rgba(255,255,255,.055), transparent 32%),
-                    linear-gradient(180deg, var(--panel-strong), var(--panel));
-            box-shadow: 0 22px 70px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.08);
+                    linear-gradient(145deg, rgba(255,255,255,.86), rgba(255,255,255,.58)),
+                    linear-gradient(145deg, rgba(210,241,255,.72), rgba(255,255,255,.2));
+            box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.88);
+            backdrop-filter: blur(18px);
         }
 
-        .panel::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            background: linear-gradient(90deg, transparent, rgba(77, 243, 255, .08), transparent);
-            transform: translateX(-100%);
-            animation: sweep 9s linear infinite;
+        .ice-panel.dark {
+            color: white;
+            border-color: rgba(180, 235, 255, .2);
+            background:
+                    radial-gradient(circle at 16% 0%, rgba(0,194,216,.22), transparent 28rem),
+                    linear-gradient(155deg, rgba(5,20,33,.96), rgba(13,52,79,.88));
+            box-shadow: 0 24px 80px rgba(4, 18, 31, .26), inset 0 1px 0 rgba(255,255,255,.08);
         }
 
-        @keyframes sweep {
-            0% { transform: translateX(-120%); }
-            55%, 100% { transform: translateX(120%); }
-        }
-
-        .panel-header {
-            display: flex;
-            align-items: start;
-            justify-content: space-between;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .section-label {
-            color: var(--cyan);
-            font-size: .7rem;
-            letter-spacing: .22em;
+        .panel-label {
+            color: var(--blue);
+            font-size: .68rem;
+            font-weight: 900;
+            letter-spacing: .18em;
             text-transform: uppercase;
+        }
+
+        .dark .panel-label { color: #9beeff; }
+
+        .panel-title {
+            font-weight: 900;
+            letter-spacing: -.03em;
+            margin: .15rem 0 0;
+        }
+
+        .panel-subtitle { color: var(--muted); margin: .3rem 0 0; }
+        .dark .panel-subtitle { color: rgba(226, 246, 255, .68); }
+
+        .map-shell {
+            position: relative;
+            border-radius: 1.25rem;
+            overflow: hidden;
+            border: 1px solid rgba(28, 91, 135, .14);
+            background: white;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,.8), 0 18px 42px rgba(10, 45, 75, .12);
+        }
+
+        #map { height: var(--map-height); background: #fff; }
+        .leaflet-container { background: #fff !important; color: #172033; }
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #fff; color: #172033; }
+
+        .map-chip {
+            position: absolute;
+            left: 1rem;
+            bottom: 1rem;
+            z-index: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            padding: .58rem .8rem;
+            border-radius: 999px;
+            background: rgba(255,255,255,.9);
+            border: 1px solid rgba(28,91,135,.15);
+            box-shadow: 0 16px 34px rgba(12,44,74,.16);
+            backdrop-filter: blur(14px);
+            font-size: .82rem;
             font-weight: 800;
         }
 
-        .mission-title {
-            margin: .1rem 0 0;
-            font-weight: 800;
-            letter-spacing: .02em;
-        }
-
-        .mission-subtitle {
-            color: var(--muted);
-            margin: .35rem 0 0;
+        .status-value {
+            font-size: clamp(1.05rem, 2vw, 1.5rem);
+            font-weight: 900;
+            letter-spacing: -.02em;
         }
 
         .stat-label {
             color: var(--muted);
-            font-size: .68rem;
-            letter-spacing: .17em;
+            font-size: .67rem;
+            font-weight: 900;
+            letter-spacing: .14em;
             text-transform: uppercase;
-            font-weight: 800;
         }
+
+        .dark .stat-label { color: rgba(226,246,255,.62); }
 
         .stat-value {
-            color: var(--text);
-            font-weight: 800;
-            font-size: clamp(1.02rem, 2vw, 1.35rem);
-            letter-spacing: .02em;
-            line-height: 1.15;
+            color: var(--navy);
+            font-weight: 900;
+            font-size: clamp(1.05rem, 2vw, 1.45rem);
+            letter-spacing: -.025em;
+            line-height: 1.1;
         }
 
+        .dark .stat-value { color: white; }
+
+        .metric-stack { display: grid; gap: .85rem; }
+
         .metric-card {
-            min-height: 132px;
-            padding: 1rem;
-            border-radius: 1.15rem;
-            border: 1px solid rgba(77, 243, 255, .14);
-            background: linear-gradient(145deg, rgba(8, 22, 43, .9), rgba(4, 10, 24, .74));
-            box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 16px 40px rgba(0,0,0,.22);
             position: relative;
+            min-height: 116px;
+            padding: 1rem;
+            border-radius: 1.25rem;
+            border: 1px solid rgba(28,91,135,.12);
+            background: rgba(255,255,255,.7);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 14px 30px rgba(10, 45, 75, .08);
             overflow: hidden;
         }
 
@@ -205,378 +227,274 @@
             position: absolute;
             left: 1rem;
             right: 1rem;
-            bottom: .86rem;
-            height: 4px;
+            bottom: .85rem;
+            height: 6px;
             border-radius: 999px;
             background:
-                    linear-gradient(90deg, var(--cyan), var(--violet)) left / var(--metric-fill, 0%) 100% no-repeat,
-                    rgba(255,255,255,.08);
-            box-shadow: 0 0 18px rgba(77, 243, 255, .28);
+                    linear-gradient(90deg, var(--cyan), var(--blue)) left / var(--metric-fill, 0%) 100% no-repeat,
+                    rgba(28,91,135,.11);
         }
 
         .metric-icon {
-            width: 2.45rem;
-            height: 2.45rem;
-            border-radius: .9rem;
             display: grid;
             place-items: center;
-            color: var(--cyan);
-            background: rgba(77, 243, 255, .08);
-            border: 1px solid rgba(77, 243, 255, .2);
-            font-size: 1.15rem;
+            width: 2.55rem;
+            height: 2.55rem;
+            border-radius: .9rem;
+            color: #063a52;
+            background: linear-gradient(145deg, #ffffff, #d8f3ff);
+            border: 1px solid rgba(28,91,135,.12);
+            box-shadow: 0 12px 28px rgba(10,45,75,.12);
+            font-weight: 900;
         }
 
-        .map-wrap {
-            position: relative;
-            border-radius: 1.25rem;
-            padding: 1px;
-            background: linear-gradient(135deg, rgba(77,243,255,.5), rgba(157,124,255,.26), rgba(67,255,159,.22));
-            box-shadow: var(--shadow-cyan);
+        .mini-readout {
+            padding: .9rem;
+            border-radius: 1rem;
+            background: rgba(255,255,255,.08);
+            border: 1px solid rgba(255,255,255,.12);
         }
 
-        #map {
-            height: var(--map-height);
-            border-radius: 1.2rem;
-            background: #ffffff;
-            z-index: 1;
-        }
-
-        .map-overlay {
-            position: absolute;
-            inset: 1px;
-            pointer-events: none;
-            border-radius: 1.2rem;
-            z-index: 401;
-            background:
-                    radial-gradient(circle at 50% 50%, transparent 0 34%, rgba(0, 120, 150, .045) 34.4%, transparent 35%),
-                    linear-gradient(rgba(0, 120, 150, .04) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(0, 120, 150, .04) 1px, transparent 1px);
-            background-size: 100% 100%, 44px 44px, 44px 44px;
-            opacity: .55;
-        }
-
-        .radar-card {
-            min-height: 100%;
+        .telemetry-strip {
             display: grid;
-            grid-template-rows: auto 1fr auto;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: .75rem;
+        }
+
+        .constellation-wrap {
+            display: grid;
+            place-items: center;
+            padding: .75rem 0 1.1rem;
         }
 
         .radar {
             position: relative;
-            width: min(290px, 74vw);
+            width: min(100%, 330px);
             aspect-ratio: 1;
-            margin: 1rem auto;
             border-radius: 50%;
-            border: 1px solid rgba(77,243,255,.28);
             background:
-                    radial-gradient(circle, transparent 0 18%, rgba(77,243,255,.08) 18.2% 18.9%, transparent 19.2% 38%, rgba(77,243,255,.08) 38.2% 38.9%, transparent 39.2% 58%, rgba(77,243,255,.08) 58.2% 58.9%, transparent 59.2%),
-                    conic-gradient(from 0deg, rgba(77,243,255,.22), transparent 32%, transparent);
-            box-shadow: inset 0 0 60px rgba(77,243,255,.10), 0 0 42px rgba(77,243,255,.16);
-            overflow: hidden;
+                    radial-gradient(circle at center, rgba(255,255,255,.12) 0 2px, transparent 3px),
+                    radial-gradient(circle at center, transparent 0 24%, rgba(166,244,255,.18) 24.5% 25%, transparent 25.5% 47%, rgba(166,244,255,.18) 47.5% 48%, transparent 48.5% 70%, rgba(166,244,255,.2) 70.5% 71%, transparent 71.5%),
+                    conic-gradient(from 0deg, rgba(0,194,216,.16), rgba(255,255,255,.03), rgba(26,156,255,.16), rgba(0,194,216,.16));
+            border: 1px solid rgba(166,244,255,.28);
+            box-shadow: inset 0 0 50px rgba(0,194,216,.12), 0 22px 60px rgba(0,0,0,.24);
         }
 
-        .radar::before {
+        .radar::before, .radar::after {
             content: "";
             position: absolute;
-            inset: 50% auto auto 50%;
-            width: 50%;
-            height: 2px;
-            background: linear-gradient(90deg, var(--cyan), transparent);
-            transform-origin: left center;
-            animation: radarSweep 4.5s linear infinite;
-            box-shadow: 0 0 18px var(--cyan);
+            inset: 50% 8% auto 8%;
+            height: 1px;
+            background: rgba(166,244,255,.22);
         }
+        .radar::after { transform: rotate(90deg); }
 
         .radar-center-dot {
             position: absolute;
             left: 50%;
             top: 50%;
-            width: 12px;
-            height: 12px;
-            transform: translate(-50%, -50%);
+            width: .75rem;
+            height: .75rem;
             border-radius: 50%;
-            background: var(--green);
-            box-shadow: 0 0 24px var(--green);
+            transform: translate(-50%, -50%);
+            background: #fff;
+            box-shadow: 0 0 0 .45rem rgba(255,255,255,.08), 0 0 22px rgba(166,244,255,.8);
             z-index: 3;
         }
 
         .satellite-dot {
             position: absolute;
-            left: 50%;
-            top: 50%;
-            width: 11px;
-            height: 11px;
+            width: .86rem;
+            height: .86rem;
             border-radius: 50%;
-            background: var(--cyan);
-            border: 1px solid rgba(230,247,255,.9);
-            box-shadow: 0 0 18px rgba(77,243,255,.85), 0 0 34px rgba(77,243,255,.28);
             transform: translate(-50%, -50%);
-            z-index: 2;
+            background: #48ffcf;
+            border: 2px solid rgba(255,255,255,.95);
+            box-shadow: 0 0 16px rgba(72,255,207,.7);
+            z-index: 4;
         }
 
         .satellite-dot::after {
             content: attr(data-label);
             position: absolute;
             left: 50%;
-            top: 50%;
-            transform: translate(-50%, -185%);
-            color: rgba(230,247,255,.82);
-            font: 700 .58rem ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-            text-shadow: 0 0 10px rgba(77,243,255,.72);
+            top: 100%;
+            transform: translateX(-50%);
+            margin-top: .18rem;
+            color: rgba(255,255,255,.82);
+            font-size: .54rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         }
 
         .radar-caption {
             position: absolute;
             left: 50%;
-            bottom: 1rem;
+            bottom: 15%;
             transform: translateX(-50%);
-            color: var(--muted);
-            font: 700 .68rem ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-            letter-spacing: .08em;
-            text-transform: uppercase;
-            z-index: 4;
+            color: rgba(255,255,255,.78);
+            font-size: .78rem;
+            font-weight: 800;
+            text-align: center;
             white-space: nowrap;
         }
-
-        @keyframes radarSweep { to { transform: rotate(360deg); } }
-
-        .telemetry-strip {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: .75rem;
-        }
-
-        @media (max-width: 575.98px) {
-            .telemetry-strip { grid-template-columns: repeat(2, 1fr); }
-        }
-
-        .mini-readout {
-            border: 1px solid rgba(77,243,255,.14);
-            border-radius: .85rem;
-            padding: .8rem;
-            background: rgba(0,0,0,.18);
-        }
-
-        .mono {
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-            font-size: .85rem;
-        }
-
-        .small-badge { font-size: .72rem; letter-spacing: .02em; }
 
         .table-shell {
-            border: 1px solid rgba(77,243,255,.12);
-            border-radius: 1rem;
+            border-radius: 1.2rem;
             overflow: hidden;
-            background: rgba(2, 8, 18, .52);
+            border: 1px solid rgba(28,91,135,.12);
+            background: rgba(255,255,255,.72);
         }
 
-        .table {
-            --bs-table-bg: transparent;
-            --bs-table-color: var(--text);
-            --bs-table-hover-bg: rgba(77, 243, 255, .07);
-            --bs-table-hover-color: var(--text);
-            margin: 0;
-        }
-
+        .table { margin-bottom: 0; }
         .table thead th {
-            position: sticky;
-            top: 0;
-            z-index: 2;
-            border-color: rgba(77,243,255,.16);
-            background: rgba(9, 20, 40, .96);
-            color: var(--cyan);
+            background: rgba(235, 249, 255, .92);
+            color: #29455f;
+            border-bottom: 1px solid rgba(28,91,135,.12);
             white-space: nowrap;
             font-size: .72rem;
-            letter-spacing: .12em;
+            letter-spacing: .08em;
             text-transform: uppercase;
         }
-
         .table tbody td {
             vertical-align: middle;
-            border-color: rgba(255,255,255,.07);
             font-size: .9rem;
+            border-color: rgba(28,91,135,.08);
         }
+
+        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: .84rem; }
+        .small-badge { font-size: .7rem; }
 
         .alert {
-            border-radius: 1rem;
-            border: 1px solid rgba(255, 209, 102, .32);
-            background: rgba(255, 209, 102, .09);
-            color: #ffe7a7;
-        }
-
-        .alert-danger {
-            border-color: rgba(255, 94, 122, .38);
-            background: rgba(255, 94, 122, .10);
-            color: #ffb6c3;
-        }
-
-        .leaflet-container {
-            background: #ffffff;
-            color: #172033;
-        }
-        .leaflet-popup-content-wrapper, .leaflet-popup-tip {
-            background: #ffffff;
-            color: #172033;
-        }
-        .leaflet-control-attribution, .leaflet-control-zoom a {
-            background: rgba(255,255,255,.94) !important;
-            color: #172033 !important;
-            border-color: rgba(15,23,42,.18) !important;
+            border: 0;
+            border-radius: 1.1rem;
+            box-shadow: 0 14px 34px rgba(10,45,75,.12);
         }
     </style>
 </head>
 <body>
 <div class="app-shell">
-    <nav class="mission-nav py-3">
-        <div class="container-fluid px-4 px-lg-5 d-flex flex-wrap justify-content-between align-items-center gap-3">
-            <div>
-                <div class="brand-kicker">SensAI PONYO</div>
-                <div class="brand-title">Mission Control</div>
-            </div>
-            <div class="d-flex flex-wrap gap-2 align-items-center">
-                <span class="status-pill" id="refreshBadge">Starting…</span>
+    <header class="topbar">
+        <div class="container-fluid px-4 px-lg-5 py-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div>
+                    <div class="brand-kicker">Option B / Environmental Observatory</div>
+                    <h1 class="brand-title">PONYO Polar Research Station</h1>
+                </div>
+                <div class="refresh-pill" id="refreshBadge"><span class="pulse-dot"></span> Starting…</div>
             </div>
         </div>
-    </nav>
+    </header>
 
     <main class="container-fluid px-4 px-lg-5 py-4">
         <div class="alert alert-warning d-none" id="warningBox"></div>
         <div class="alert alert-danger d-none" id="errorBox"></div>
 
-        <section class="hero-grid mb-4">
-            <div class="panel p-3 p-md-4">
-                <div class="panel-header">
+        <section class="station-grid mb-3">
+            <div class="ice-panel p-3 p-md-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
                     <div>
-                        <div class="section-label">Orbital Positioning</div>
-                        <h2 class="mission-title">Latest location lock</h2>
-                        <div class="mission-subtitle" id="latestSummary">Waiting for telemetry stream…</div>
+                        <div class="panel-label">Live position</div>
+                        <h2 class="panel-title">Whiteout map console</h2>
+                        <p class="panel-subtitle" id="latestSummary">Waiting for telemetry stream…</p>
                     </div>
-                    <div class="text-end">
+                    <div class="text-md-end">
                         <div class="stat-label">Data status</div>
-                        <div class="stat-value" id="dataStatus">Loading…</div>
+                        <div class="status-value" id="dataStatus">Loading…</div>
                     </div>
                 </div>
-                <div class="map-wrap">
+                <div class="map-shell">
                     <div id="map"></div>
-                    <div class="map-overlay"></div>
+                    <div class="map-chip"><span class="pulse-dot"></span><span>Bright basemap / GPS lock view</span></div>
                 </div>
             </div>
 
-            <div class="panel p-3 p-md-4 radar-card">
-                <div class="panel-header mb-0">
+            <div class="metric-stack">
+                <div class="ice-panel p-3 p-md-4">
+                    <div class="panel-label">Atmosphere</div>
+                    <h2 class="panel-title">Sensor climate</h2>
+                    <p class="panel-subtitle">DHT, particulate, and GPS health at a glance.</p>
+                    <div class="metric-stack mt-3">
+                        <div class="metric-card" id="metricTemp">
+                            <div class="d-flex justify-content-between align-items-start gap-3">
+                                <div><div class="stat-label">Air temperature</div><div class="stat-value mt-2" id="statTemp">—</div></div>
+                                <div class="metric-icon">℃</div>
+                            </div>
+                        </div>
+                        <div class="metric-card" id="metricHumidity">
+                            <div class="d-flex justify-content-between align-items-start gap-3">
+                                <div><div class="stat-label">Humidity</div><div class="stat-value mt-2" id="statHumidity">—</div></div>
+                                <div class="metric-icon">%</div>
+                            </div>
+                        </div>
+                        <div class="metric-card" id="metricPM25">
+                            <div class="d-flex justify-content-between align-items-start gap-3">
+                                <div><div class="stat-label">PM2.5</div><div class="stat-value mt-2" id="statPM25">—</div></div>
+                                <div class="metric-icon">µg</div>
+                            </div>
+                        </div>
+                        <div class="metric-card" id="metricFix">
+                            <div class="d-flex justify-content-between align-items-start gap-3">
+                                <div><div class="stat-label">GPS health</div><div class="stat-value mt-2" id="statFix">—</div></div>
+                                <div class="metric-icon">⌖</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="secondary-grid mb-3">
+            <div class="ice-panel dark p-3 p-md-4">
+                <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
                     <div>
-                        <div class="section-label">Signal Acquisition</div>
-                        <h2 class="mission-title">Telemetry radar</h2>
+                        <div class="panel-label">Satellite constellation</div>
+                        <h2 class="panel-title">Sky plot</h2>
+                        <p class="panel-subtitle">One dot per reported satellite.</p>
                     </div>
                     <div class="text-end">
-                        <div class="stat-label">Last update</div>
+                        <div class="stat-label">Last packet</div>
                         <div class="stat-value" id="statTs">—</div>
                     </div>
                 </div>
-                <div class="radar" id="satelliteRadar" aria-label="Satellite radar plot"><div class="radar-center-dot"></div><div class="radar-caption" id="radarCaption">Awaiting satellite data</div></div>
+                <div class="constellation-wrap">
+                    <div class="radar" id="satelliteRadar" aria-label="Satellite constellation plot">
+                        <div class="radar-center-dot"></div>
+                        <div class="radar-caption" id="radarCaption">Awaiting satellite data</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ice-panel dark p-3 p-md-4">
+                <div class="panel-label">Station systems</div>
+                <h2 class="panel-title">Pi health capsule</h2>
+                <p class="panel-subtitle mb-3">CPU, memory, load, uptime, and power status from the latest telemetry packet.</p>
                 <div class="telemetry-strip">
-                    <div class="mini-readout">
-                        <div class="stat-label">CPU</div>
-                        <div class="stat-value" id="statCPU">—</div>
-                    </div>
-                    <div class="mini-readout">
-                        <div class="stat-label">CPU Temp</div>
-                        <div class="stat-value" id="statCPUTemp">—</div>
-                    </div>
-                    <div class="mini-readout">
-                        <div class="stat-label">Memory</div>
-                        <div class="stat-value" id="statMem">—</div>
-                    </div>
-                    <div class="mini-readout">
-                        <div class="stat-label">Uptime</div>
-                        <div class="stat-value" id="statUptime">—</div>
-                    </div>
+                    <div class="mini-readout"><div class="stat-label">CPU</div><div class="stat-value" id="statCPU">—</div></div>
+                    <div class="mini-readout"><div class="stat-label">CPU Temp</div><div class="stat-value" id="statCPUTemp">—</div></div>
+                    <div class="mini-readout"><div class="stat-label">Memory</div><div class="stat-value" id="statMem">—</div></div>
+                    <div class="mini-readout"><div class="stat-label">Uptime</div><div class="stat-value" id="statUptime">—</div></div>
                 </div>
             </div>
         </section>
 
-        <section class="row g-3 mb-4">
-            <div class="col-6 col-lg-3">
-                <div class="metric-card" id="metricTemp">
-                    <div class="d-flex justify-content-between align-items-start gap-3">
-                        <div>
-                            <div class="stat-label">Air temperature</div>
-                            <div class="stat-value mt-2" id="statTemp">—</div>
-                        </div>
-                        <div class="metric-icon">℃</div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-6 col-lg-3">
-                <div class="metric-card" id="metricHumidity">
-                    <div class="d-flex justify-content-between align-items-start gap-3">
-                        <div>
-                            <div class="stat-label">Humidity</div>
-                            <div class="stat-value mt-2" id="statHumidity">—</div>
-                        </div>
-                        <div class="metric-icon">%</div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-6 col-lg-3">
-                <div class="metric-card" id="metricPM25">
-                    <div class="d-flex justify-content-between align-items-start gap-3">
-                        <div>
-                            <div class="stat-label">PM2.5</div>
-                            <div class="stat-value mt-2" id="statPM25">—</div>
-                        </div>
-                        <div class="metric-icon">µg</div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-6 col-lg-3">
-                <div class="metric-card" id="metricFix">
-                    <div class="d-flex justify-content-between align-items-start gap-3">
-                        <div>
-                            <div class="stat-label">GPS Health</div>
-                            <div class="stat-value mt-2" id="statFix">—</div>
-                        </div>
-                        <div class="metric-icon">⌖</div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section class="panel p-3 p-md-4">
-            <div class="panel-header">
+        <section class="ice-panel p-3 p-md-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
                 <div>
-                    <div class="section-label">Telemetry Archive</div>
-                    <h3 class="mission-title">Last 10 rows</h3>
-                    <div class="mission-subtitle">Parsed from the JSON payload stored in the Google Form response sheet.</div>
+                    <div class="panel-label">Telemetry stream</div>
+                    <h3 class="panel-title">Last 10 packets</h3>
+                    <p class="panel-subtitle">Parsed from the JSON payload stored in the Google Form response sheet.</p>
                 </div>
                 <div class="text-secondary small mono" id="tableMeta">—</div>
             </div>
-
             <div class="table-responsive table-shell">
                 <table class="table table-hover align-middle">
                     <thead>
                     <tr>
-                        <th>Time</th>
-                        <th>GPS</th>
-                        <th>Temp</th>
-                        <th>Humidity</th>
-                        <th>PM1.0</th>
-                        <th>PM2.5</th>
-                        <th>PM10</th>
-                        <th>CPU</th>
-                        <th>CPU Temp</th>
-                        <th>Memory</th>
-                        <th>Public IP</th>
-                        <th>Power</th>
-                        <th>Errors</th>
-                        <th>Raw status</th>
+                        <th>Time</th><th>GPS</th><th>Temp</th><th>Humidity</th><th>PM1</th><th>PM2.5</th><th>PM10</th><th>CPU</th><th>CPU Temp</th><th>Mem</th><th>Public IP</th><th>Power</th><th>Errors</th><th>Status</th>
                     </tr>
                     </thead>
                     <tbody id="rowsTable">
-                    <tr>
-                        <td colspan="14" class="text-center text-secondary py-4">Loading data…</td>
-                    </tr>
+                    <tr><td colspan="14" class="text-center text-secondary py-4">Loading data…</td></tr>
                     </tbody>
                 </table>
             </div>
