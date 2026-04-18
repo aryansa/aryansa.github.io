@@ -1,181 +1,596 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Pi Telemetry Dashboard</title>
+    <title>SensAI PONYO Mission Control</title>
 
-    <link
-            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-            rel="stylesheet"
-    />
-    <link
-            rel="stylesheet"
-            href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-            crossorigin=""
-    />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
 
     <style>
         :root {
-            --map-height: 360px;
+            --map-height: 430px;
+            --bg-0: #030712;
+            --bg-1: #07111f;
+            --bg-2: #0b1730;
+            --panel: rgba(10, 20, 38, .76);
+            --panel-strong: rgba(13, 28, 52, .92);
+            --line: rgba(99, 241, 255, .18);
+            --line-strong: rgba(99, 241, 255, .42);
+            --text: #e6f7ff;
+            --muted: #89a4bb;
+            --cyan: #4df3ff;
+            --blue: #4aa3ff;
+            --violet: #9d7cff;
+            --green: #43ff9f;
+            --amber: #ffd166;
+            --red: #ff5e7a;
+            --shadow-cyan: 0 0 28px rgba(77, 243, 255, .26);
         }
+
+        * { box-sizing: border-box; }
+
         body {
-            background: #f6f8fb;
+            min-height: 100vh;
+            margin: 0;
+            color: var(--text);
+            background:
+                    radial-gradient(circle at 15% 15%, rgba(77, 243, 255, .14), transparent 32rem),
+                    radial-gradient(circle at 82% 10%, rgba(157, 124, 255, .16), transparent 26rem),
+                    radial-gradient(circle at 58% 85%, rgba(67, 255, 159, .08), transparent 32rem),
+                    linear-gradient(135deg, var(--bg-0) 0%, var(--bg-1) 52%, #02040a 100%);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            overflow-x: hidden;
         }
-        .navbar-brand small {
-            display: block;
-            font-size: 0.75rem;
-            color: rgba(255,255,255,.8);
-            line-height: 1.1;
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background-image:
+                    linear-gradient(rgba(77, 243, 255, .05) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(77, 243, 255, .05) 1px, transparent 1px);
+            background-size: 42px 42px;
+            mask-image: radial-gradient(circle at center, black 0%, transparent 82%);
         }
+
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 1;
+            background: repeating-linear-gradient(
+                    to bottom,
+                    rgba(255,255,255,.025),
+                    rgba(255,255,255,.025) 1px,
+                    transparent 1px,
+                    transparent 5px
+            );
+            mix-blend-mode: screen;
+            opacity: .28;
+        }
+
+        .app-shell { position: relative; z-index: 2; }
+
+        .mission-nav {
+            border-bottom: 1px solid var(--line);
+            background: rgba(3, 7, 18, .72);
+            backdrop-filter: blur(18px);
+            box-shadow: 0 12px 42px rgba(0,0,0,.36);
+        }
+
+        .brand-kicker {
+            font-size: .68rem;
+            letter-spacing: .26em;
+            color: var(--cyan);
+            text-transform: uppercase;
+        }
+
+        .brand-title {
+            font-size: clamp(1.15rem, 2.6vw, 1.85rem);
+            font-weight: 800;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            text-shadow: 0 0 20px rgba(77, 243, 255, .42);
+        }
+
+        .status-pill {
+            border: 1px solid var(--line-strong);
+            color: var(--text);
+            background: linear-gradient(135deg, rgba(77, 243, 255, .16), rgba(157, 124, 255, .12));
+            box-shadow: var(--shadow-cyan);
+            border-radius: 999px;
+            padding: .55rem .9rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: .78rem;
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1.1fr .9fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 991.98px) {
+            .hero-grid { grid-template-columns: 1fr; }
+            :root { --map-height: 360px; }
+        }
+
+        .panel {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            border-radius: 1.25rem;
+            background:
+                    linear-gradient(160deg, rgba(255,255,255,.055), transparent 32%),
+                    linear-gradient(180deg, var(--panel-strong), var(--panel));
+            box-shadow: 0 22px 70px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.08);
+        }
+
+        .panel::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(90deg, transparent, rgba(77, 243, 255, .08), transparent);
+            transform: translateX(-100%);
+            animation: sweep 9s linear infinite;
+        }
+
+        @keyframes sweep {
+            0% { transform: translateX(-120%); }
+            55%, 100% { transform: translateX(120%); }
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: start;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .section-label {
+            color: var(--cyan);
+            font-size: .7rem;
+            letter-spacing: .22em;
+            text-transform: uppercase;
+            font-weight: 800;
+        }
+
+        .mission-title {
+            margin: .1rem 0 0;
+            font-weight: 800;
+            letter-spacing: .02em;
+        }
+
+        .mission-subtitle {
+            color: var(--muted);
+            margin: .35rem 0 0;
+        }
+
+        .stat-label {
+            color: var(--muted);
+            font-size: .68rem;
+            letter-spacing: .17em;
+            text-transform: uppercase;
+            font-weight: 800;
+        }
+
+        .stat-value {
+            color: var(--text);
+            font-weight: 800;
+            font-size: clamp(1.02rem, 2vw, 1.35rem);
+            letter-spacing: .02em;
+            line-height: 1.15;
+        }
+
+        .metric-card {
+            min-height: 132px;
+            padding: 1rem;
+            border-radius: 1.15rem;
+            border: 1px solid rgba(77, 243, 255, .14);
+            background: linear-gradient(145deg, rgba(8, 22, 43, .9), rgba(4, 10, 24, .74));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 16px 40px rgba(0,0,0,.22);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::after {
+            content: "";
+            position: absolute;
+            left: 1rem;
+            right: 1rem;
+            bottom: .86rem;
+            height: 4px;
+            border-radius: 999px;
+            background:
+                    linear-gradient(90deg, var(--cyan), var(--violet)) left / var(--metric-fill, 0%) 100% no-repeat,
+                    rgba(255,255,255,.08);
+            box-shadow: 0 0 18px rgba(77, 243, 255, .28);
+        }
+
+        .metric-icon {
+            width: 2.45rem;
+            height: 2.45rem;
+            border-radius: .9rem;
+            display: grid;
+            place-items: center;
+            color: var(--cyan);
+            background: rgba(77, 243, 255, .08);
+            border: 1px solid rgba(77, 243, 255, .2);
+            font-size: 1.15rem;
+        }
+
+        .map-wrap {
+            position: relative;
+            border-radius: 1.25rem;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(77,243,255,.5), rgba(157,124,255,.26), rgba(67,255,159,.22));
+            box-shadow: var(--shadow-cyan);
+        }
+
         #map {
             height: var(--map-height);
-            border-radius: 1rem;
+            border-radius: 1.2rem;
+            background: #ffffff;
+            z-index: 1;
         }
-        .card {
-            border: 0;
-            border-radius: 1rem;
-            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+
+        .map-overlay {
+            position: absolute;
+            inset: 1px;
+            pointer-events: none;
+            border-radius: 1.2rem;
+            z-index: 401;
+            background:
+                    radial-gradient(circle at 50% 50%, transparent 0 34%, rgba(0, 120, 150, .045) 34.4%, transparent 35%),
+                    linear-gradient(rgba(0, 120, 150, .04) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(0, 120, 150, .04) 1px, transparent 1px);
+            background-size: 100% 100%, 44px 44px, 44px 44px;
+            opacity: .55;
         }
-        .stat-label {
-            font-size: .78rem;
-            color: #6b7280;
+
+        .radar-card {
+            min-height: 100%;
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+        }
+
+        .radar {
+            position: relative;
+            width: min(290px, 74vw);
+            aspect-ratio: 1;
+            margin: 1rem auto;
+            border-radius: 50%;
+            border: 1px solid rgba(77,243,255,.28);
+            background:
+                    radial-gradient(circle, transparent 0 18%, rgba(77,243,255,.08) 18.2% 18.9%, transparent 19.2% 38%, rgba(77,243,255,.08) 38.2% 38.9%, transparent 39.2% 58%, rgba(77,243,255,.08) 58.2% 58.9%, transparent 59.2%),
+                    conic-gradient(from 0deg, rgba(77,243,255,.22), transparent 32%, transparent);
+            box-shadow: inset 0 0 60px rgba(77,243,255,.10), 0 0 42px rgba(77,243,255,.16);
+            overflow: hidden;
+        }
+
+        .radar::before {
+            content: "";
+            position: absolute;
+            inset: 50% auto auto 50%;
+            width: 50%;
+            height: 2px;
+            background: linear-gradient(90deg, var(--cyan), transparent);
+            transform-origin: left center;
+            animation: radarSweep 4.5s linear infinite;
+            box-shadow: 0 0 18px var(--cyan);
+        }
+
+        .radar-center-dot {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 12px;
+            height: 12px;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 24px var(--green);
+            z-index: 3;
+        }
+
+        .satellite-dot {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background: var(--cyan);
+            border: 1px solid rgba(230,247,255,.9);
+            box-shadow: 0 0 18px rgba(77,243,255,.85), 0 0 34px rgba(77,243,255,.28);
+            transform: translate(-50%, -50%);
+            z-index: 2;
+        }
+
+        .satellite-dot::after {
+            content: attr(data-label);
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -185%);
+            color: rgba(230,247,255,.82);
+            font: 700 .58rem ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            text-shadow: 0 0 10px rgba(77,243,255,.72);
+        }
+
+        .radar-caption {
+            position: absolute;
+            left: 50%;
+            bottom: 1rem;
+            transform: translateX(-50%);
+            color: var(--muted);
+            font: 700 .68rem ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            letter-spacing: .08em;
             text-transform: uppercase;
-            letter-spacing: .04em;
-        }
-        .stat-value {
-            font-weight: 700;
-            font-size: 1.05rem;
-        }
-        .table thead th {
+            z-index: 4;
             white-space: nowrap;
-            font-size: .8rem;
         }
-        .table tbody td {
-            vertical-align: middle;
-            font-size: .92rem;
+
+        @keyframes radarSweep { to { transform: rotate(360deg); } }
+
+        .telemetry-strip {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: .75rem;
         }
+
+        @media (max-width: 575.98px) {
+            .telemetry-strip { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .mini-readout {
+            border: 1px solid rgba(77,243,255,.14);
+            border-radius: .85rem;
+            padding: .8rem;
+            background: rgba(0,0,0,.18);
+        }
+
         .mono {
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-size: .85rem;
         }
-        .small-badge {
-            font-size: .72rem;
+
+        .small-badge { font-size: .72rem; letter-spacing: .02em; }
+
+        .table-shell {
+            border: 1px solid rgba(77,243,255,.12);
+            border-radius: 1rem;
+            overflow: hidden;
+            background: rgba(2, 8, 18, .52);
         }
+
+        .table {
+            --bs-table-bg: transparent;
+            --bs-table-color: var(--text);
+            --bs-table-hover-bg: rgba(77, 243, 255, .07);
+            --bs-table-hover-color: var(--text);
+            margin: 0;
+        }
+
+        .table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            border-color: rgba(77,243,255,.16);
+            background: rgba(9, 20, 40, .96);
+            color: var(--cyan);
+            white-space: nowrap;
+            font-size: .72rem;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+        }
+
+        .table tbody td {
+            vertical-align: middle;
+            border-color: rgba(255,255,255,.07);
+            font-size: .9rem;
+        }
+
+        .alert {
+            border-radius: 1rem;
+            border: 1px solid rgba(255, 209, 102, .32);
+            background: rgba(255, 209, 102, .09);
+            color: #ffe7a7;
+        }
+
+        .alert-danger {
+            border-color: rgba(255, 94, 122, .38);
+            background: rgba(255, 94, 122, .10);
+            color: #ffb6c3;
+        }
+
         .leaflet-container {
-            background: #e9eef5;
+            background: #ffffff;
+            color: #172033;
+        }
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+            background: #ffffff;
+            color: #172033;
+        }
+        .leaflet-control-attribution, .leaflet-control-zoom a {
+            background: rgba(255,255,255,.94) !important;
+            color: #172033 !important;
+            border-color: rgba(15,23,42,.18) !important;
         }
     </style>
 </head>
 <body>
-<nav class="navbar navbar-dark bg-dark">
-    <div class="container-fluid px-4">
-      <span class="navbar-brand mb-0 h1">
-        SensAI PONYO Dashboard
-      </span>
-        <span class="badge text-bg-light" id="refreshBadge">Starting…</span>
-    </div>
-</nav>
+<div class="app-shell">
+    <nav class="mission-nav py-3">
+        <div class="container-fluid px-4 px-lg-5 d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+                <div class="brand-kicker">SensAI PONYO</div>
+                <div class="brand-title">Mission Control</div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <span class="status-pill" id="refreshBadge">Starting…</span>
+            </div>
+        </div>
+    </nav>
 
-<main class="container py-4">
-    <div class="alert alert-warning d-none" id="warningBox"></div>
-    <div class="alert alert-danger d-none" id="errorBox"></div>
+    <main class="container-fluid px-4 px-lg-5 py-4">
+        <div class="alert alert-warning d-none" id="warningBox"></div>
+        <div class="alert alert-danger d-none" id="errorBox"></div>
 
-    <div class="row g-4">
-        <div class="col-12">
-            <div class="card p-3 p-md-4">
-                <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+        <section class="hero-grid mb-4">
+            <div class="panel p-3 p-md-4">
+                <div class="panel-header">
                     <div>
-                        <h3 class="mb-1">Latest location</h3>
-                        <div class="text-secondary" id="latestSummary">Waiting for data…</div>
+                        <div class="section-label">Orbital Positioning</div>
+                        <h2 class="mission-title">Latest location lock</h2>
+                        <div class="mission-subtitle" id="latestSummary">Waiting for telemetry stream…</div>
                     </div>
                     <div class="text-end">
                         <div class="stat-label">Data status</div>
                         <div class="stat-value" id="dataStatus">Loading…</div>
                     </div>
                 </div>
-                <div id="map"></div>
+                <div class="map-wrap">
+                    <div id="map"></div>
+                    <div class="map-overlay"></div>
+                </div>
             </div>
-        </div>
 
-        <div class="col-12">
-            <div class="row g-3">
-                <div class="col-6 col-md-3">
-                    <div class="card p-3 h-100">
+            <div class="panel p-3 p-md-4 radar-card">
+                <div class="panel-header mb-0">
+                    <div>
+                        <div class="section-label">Signal Acquisition</div>
+                        <h2 class="mission-title">Telemetry radar</h2>
+                    </div>
+                    <div class="text-end">
                         <div class="stat-label">Last update</div>
                         <div class="stat-value" id="statTs">—</div>
                     </div>
                 </div>
-                <div class="col-6 col-md-3">
-                    <div class="card p-3 h-100">
-                        <div class="stat-label">Temperature</div>
-                        <div class="stat-value" id="statTemp">—</div>
+                <div class="radar" id="satelliteRadar" aria-label="Satellite radar plot"><div class="radar-center-dot"></div><div class="radar-caption" id="radarCaption">Awaiting satellite data</div></div>
+                <div class="telemetry-strip">
+                    <div class="mini-readout">
+                        <div class="stat-label">CPU</div>
+                        <div class="stat-value" id="statCPU">—</div>
                     </div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <div class="card p-3 h-100">
-                        <div class="stat-label">Humidity</div>
-                        <div class="stat-value" id="statHumidity">—</div>
+                    <div class="mini-readout">
+                        <div class="stat-label">CPU Temp</div>
+                        <div class="stat-value" id="statCPUTemp">—</div>
                     </div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <div class="card p-3 h-100">
-                        <div class="stat-label">PM2.5</div>
-                        <div class="stat-value" id="statPM25">—</div>
+                    <div class="mini-readout">
+                        <div class="stat-label">Memory</div>
+                        <div class="stat-value" id="statMem">—</div>
+                    </div>
+                    <div class="mini-readout">
+                        <div class="stat-label">Uptime</div>
+                        <div class="stat-value" id="statUptime">—</div>
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <div class="col-12">
-            <div class="card p-3 p-md-4">
-                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                    <div>
-                        <h4 class="mb-1">Last 10 rows</h4>
-                        <div class="text-secondary">Parsed from the JSON payload stored in the Google Form response sheet.</div>
+        <section class="row g-3 mb-4">
+            <div class="col-6 col-lg-3">
+                <div class="metric-card" id="metricTemp">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="stat-label">Air temperature</div>
+                            <div class="stat-value mt-2" id="statTemp">—</div>
+                        </div>
+                        <div class="metric-icon">℃</div>
                     </div>
-                    <div class="text-secondary small" id="tableMeta">—</div>
-                </div>
-
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                        <tr>
-                            <th>Time</th>
-                            <th>GPS</th>
-                            <th>Temp</th>
-                            <th>Humidity</th>
-                            <th>PM2.5</th>
-                            <th>CPU Temp</th>
-                            <th>Public IP</th>
-                            <th>Errors</th>
-                            <th>Raw status</th>
-                        </tr>
-                        </thead>
-                        <tbody id="rowsTable">
-                        <tr>
-                            <td colspan="9" class="text-center text-secondary py-4">Loading data…</td>
-                        </tr>
-                        </tbody>
-                    </table>
                 </div>
             </div>
-        </div>
-    </div>
-</main>
+            <div class="col-6 col-lg-3">
+                <div class="metric-card" id="metricHumidity">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="stat-label">Humidity</div>
+                            <div class="stat-value mt-2" id="statHumidity">—</div>
+                        </div>
+                        <div class="metric-icon">%</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="metric-card" id="metricPM25">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="stat-label">PM2.5</div>
+                            <div class="stat-value mt-2" id="statPM25">—</div>
+                        </div>
+                        <div class="metric-icon">µg</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="metric-card" id="metricFix">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="stat-label">GPS Health</div>
+                            <div class="stat-value mt-2" id="statFix">—</div>
+                        </div>
+                        <div class="metric-icon">⌖</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel p-3 p-md-4">
+            <div class="panel-header">
+                <div>
+                    <div class="section-label">Telemetry Archive</div>
+                    <h3 class="mission-title">Last 10 rows</h3>
+                    <div class="mission-subtitle">Parsed from the JSON payload stored in the Google Form response sheet.</div>
+                </div>
+                <div class="text-secondary small mono" id="tableMeta">—</div>
+            </div>
+
+            <div class="table-responsive table-shell">
+                <table class="table table-hover align-middle">
+                    <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>GPS</th>
+                        <th>Temp</th>
+                        <th>Humidity</th>
+                        <th>PM1.0</th>
+                        <th>PM2.5</th>
+                        <th>PM10</th>
+                        <th>CPU</th>
+                        <th>CPU Temp</th>
+                        <th>Memory</th>
+                        <th>Public IP</th>
+                        <th>Power</th>
+                        <th>Errors</th>
+                        <th>Raw status</th>
+                    </tr>
+                    </thead>
+                    <tbody id="rowsTable">
+                    <tr>
+                        <td colspan="14" class="text-center text-secondary py-4">Loading data…</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
     const CONFIG = {
-        // Fill these from your Raspberry Pi config.yaml / Google Sheet
         spreadsheetId: '1jEug3hoUVYYNFci3bpt8H4chWXRY08nrXAIawHUN0VA',
         sheetName: 'Form Responses 1',
-
-        // Your JSON payload column.
-        // The code will try these first, then fall back to scanning the whole row.
         payloadColumnLetter: 'B',
         payloadColumnHeader: 'q1',
-
         pollMs: 5000,
         rowFetchLimit: 50,
         fallbackCenter: [43.6532, -79.3832],
@@ -186,8 +601,6 @@
     const state = {
         map: null,
         marker: null,
-        circle: null,
-        requestCounter: 0,
         timer: null,
         lastSuccessfulFetchAt: null,
         parsedRows: [],
@@ -203,15 +616,25 @@
     }
 
     function fmtNum(value, digits = 2, suffix = '') {
-        return typeof value === 'number' && Number.isFinite(value)
-            ? `${value.toFixed(digits)}${suffix}`
-            : '—';
+        const n = Number(value);
+        return Number.isFinite(n) ? `${n.toFixed(digits)}${suffix}` : '—';
     }
 
     function fmtDate(iso) {
         if (!iso) return '—';
         const d = new Date(iso);
         return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
+    }
+
+    function fmtUptime(seconds) {
+        const s = Number(seconds);
+        if (!Number.isFinite(s)) return '—';
+        const days = Math.floor(s / 86400);
+        const hours = Math.floor((s % 86400) / 3600);
+        const mins = Math.floor((s % 3600) / 60);
+        if (days) return `${days}d ${hours}h ${mins}m`;
+        if (hours) return `${hours}h ${mins}m`;
+        return `${mins}m`;
     }
 
     function escapeHtml(str) {
@@ -237,43 +660,112 @@
 
     function initMap() {
         state.map = L.map('map', { zoomControl: true }).setView(CONFIG.fallbackCenter, CONFIG.fallbackZoom);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '&copy; OpenStreetMap contributors'
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 20,
+            subdomains: 'abcd',
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
         }).addTo(state.map);
     }
 
+    function firstDefined(...values) {
+        return values.find(v => v !== undefined && v !== null && v !== '');
+    }
+
+    function boolFrom(value) {
+        if (typeof value === 'boolean') return value;
+        if (typeof value === 'string') return ['true', '1', 'yes'].includes(value.trim().toLowerCase());
+        if (typeof value === 'number') return value !== 0;
+        return false;
+    }
+
     function normalizeRecord(obj, sourceRowIndex, rawJson) {
+        const rawGps = obj?.gps ?? null;
+        const rawSys = obj?.sys ?? null;
+        const rawPower = rawSys?.Power ?? rawSys?.power ?? obj?.power ?? null;
+        const timeUnix = Number(obj?.time_unix);
+
+        const ts = typeof obj?.ts === 'string'
+            ? obj.ts
+            : Number.isFinite(timeUnix)
+                ? new Date(timeUnix * 1000).toISOString()
+                : null;
+
+        const lat = Number(firstDefined(rawGps?.Latitude, rawGps?.lat, rawGps?.latitude));
+        const lon = Number(firstDefined(rawGps?.Longitude, rawGps?.lon, rawGps?.lng, rawGps?.longitude));
+        const coordsInRange = Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
+        const isZeroZero = coordsInRange && lat === 0 && lon === 0;
+        const validCoords = coordsInRange && !isZeroZero;
+        const hasFix = rawGps
+            ? boolFrom(firstDefined(rawGps?.HasFix, rawGps?.has_fix, rawGps?.hasFix, false))
+            : false;
+
         const record = {
             sourceRowIndex,
             rawJson,
-            ts: typeof obj?.ts === 'string' ? obj.ts : null,
+            ts,
+            timeUnix: Number.isFinite(timeUnix) ? timeUnix : null,
             dht: obj?.dht ?? null,
             pm: obj?.pm ?? null,
-            gps: obj?.gps ?? null,
-            net: obj?.net ?? null,
-            sys: obj?.sys ?? null,
-            power: obj?.power ?? null,
-            errors: Array.isArray(obj?.errors) ? obj.errors : []
-        };
-
-        const lat = Number(record.gps?.lat);
-        const lon = Number(record.gps?.lon);
-        const hasFix = record.gps?.has_fix === true;
-        const validCoords = Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
-
-        record.location = {
-            hasFix,
-            lat: validCoords ? lat : null,
-            lon: validCoords ? lon : null,
-            valid: hasFix && validCoords,
-            reason: !record.gps
-                ? 'No gps object'
-                : !hasFix
-                    ? 'GPS has no fix'
-                    : !validCoords
-                        ? 'Invalid lat/lon'
-                        : null
+            gps: rawGps,
+            sys: rawSys,
+            power: rawPower,
+            errors: Array.isArray(obj?.errors) ? obj.errors : [],
+            env: {
+                tempC: firstDefined(
+                    obj?.dht?.Temperature,
+                    obj?.dht?.temperature,
+                    obj?.dht?.temp_c,
+                    obj?.dht?.TemperatureC,
+                    obj?.dht?.temperature_c,
+                    obj?.temp_c,
+                    obj?.Temperature,
+                    obj?.TemperatureC
+                ),
+                humidityPct: firstDefined(
+                    obj?.dht?.Humidity,
+                    obj?.dht?.humidity,
+                    obj?.dht?.humidity_pct,
+                    obj?.dht?.HumidityPct,
+                    obj?.dht?.humidityPercent,
+                    obj?.humidity_pct,
+                    obj?.Humidity,
+                    obj?.HumidityPct
+                )
+            },
+            location: {
+                hasFix,
+                lat: validCoords ? lat : null,
+                lon: validCoords ? lon : null,
+                altM: firstDefined(rawGps?.AltitudeM, rawGps?.alt_m, rawGps?.altitude_m),
+                satellites: firstDefined(rawGps?.Satellites, rawGps?.sats, rawGps?.satellites),
+                fixQuality: firstDefined(rawGps?.FixQuality, rawGps?.fix_quality, rawGps?.fixQuality),
+                speedKPH: firstDefined(rawGps?.SpeedKPH, rawGps?.speed_kph),
+                speedKnots: firstDefined(rawGps?.SpeedKnots, rawGps?.speed_knots),
+                trackDeg: firstDefined(rawGps?.TrackDeg, rawGps?.track_deg),
+                valid: hasFix && validCoords,
+                reason: !rawGps
+                    ? 'No gps object'
+                    : !hasFix
+                        ? 'GPS has no fix'
+                        : isZeroZero
+                            ? 'GPS is 0,0'
+                            : !validCoords
+                                ? 'Invalid lat/lon'
+                                : null
+            },
+            system: {
+                localIp: firstDefined(rawSys?.LocalIP, rawSys?.local_ip, obj?.net?.local_ip),
+                publicIp: firstDefined(rawSys?.PublicIP, rawSys?.public_ip, obj?.net?.public_ip),
+                cpuPct: firstDefined(rawSys?.CPUPct, rawSys?.cpu_pct),
+                cpuTempC: firstDefined(rawSys?.CPUTempC, rawSys?.cpu_temp_c),
+                load1: firstDefined(rawSys?.Load1, rawSys?.load1),
+                load5: firstDefined(rawSys?.Load5, rawSys?.load5),
+                load15: firstDefined(rawSys?.Load15, rawSys?.load15),
+                memTotalMB: firstDefined(rawSys?.MemTotalMB, rawSys?.mem_total_mb),
+                memAvailMB: firstDefined(rawSys?.MemAvailMB, rawSys?.mem_avail_mb),
+                memUsedMB: firstDefined(rawSys?.MemUsedMB, rawSys?.mem_used_mb),
+                uptimeSec: firstDefined(rawSys?.UptimeSec, rawSys?.uptime_sec)
+            }
         };
 
         record.sortTime = record.ts && !Number.isNaN(new Date(record.ts).getTime())
@@ -301,7 +793,7 @@
         if (!text.startsWith('{') || !text.endsWith('}')) return null;
         try {
             const parsed = JSON.parse(text);
-            if (parsed && typeof parsed === 'object' && ('ts' in parsed || 'gps' in parsed || 'pm' in parsed || 'sys' in parsed)) {
+            if (parsed && typeof parsed === 'object' && ('ts' in parsed || 'time_unix' in parsed || 'gps' in parsed || 'pm' in parsed || 'sys' in parsed)) {
                 return { raw: text, parsed };
             }
         } catch (_) {
@@ -312,7 +804,6 @@
 
     function findJsonCell(rowCells, headers = []) {
         const preferredIndexes = [];
-
         const colIndex = columnLetterToIndex(CONFIG.payloadColumnLetter);
         if (colIndex >= 0) preferredIndexes.push(colIndex);
 
@@ -333,8 +824,8 @@
             if (preferredIndexes.includes(i)) continue;
             const hit = tryParsePayloadCell(rowCells[i]);
             if (hit && !hit.parseError) return { ...hit, usedIndex: i, preferred: false };
+            if (hit && hit.parseError) return { usedIndex: i, preferred: false, brokenJson: true, raw: String(rowCells[i] ?? '') };
         }
-
         return null;
     }
 
@@ -351,20 +842,16 @@
         if (!CONFIG.spreadsheetId || !CONFIG.sheetName) {
             throw new Error('Missing spreadsheetId or sheetName in CONFIG.');
         }
-
         const query = encodeURIComponent(`select * order by A desc limit ${CONFIG.rowFetchLimit}`);
         const url = `https://docs.google.com/spreadsheets/d/${CONFIG.spreadsheetId}/gviz/tq?sheet=${encodeURIComponent(CONFIG.sheetName)}&tq=${query}`;
-
         const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) {
             throw new Error(`Sheet request failed with HTTP ${res.status}. Make sure the sheet is published or readable.`);
         }
-
         const text = await res.text();
         const gviz = parseGvizResponse(text);
         const rows = gviz?.table?.rows ?? [];
         const headers = (gviz?.table?.cols ?? []).map(c => c?.label || c?.id || '');
-
         return {
             headers,
             rows: rows.map((row, idx) => {
@@ -375,57 +862,38 @@
     }
 
     function parseRows(sheetData) {
-
         const parsedRows = [];
         const invalidRows = [];
         const rawRows = sheetData?.rows || [];
+        const headers = sheetData?.headers || [];
+
         for (const row of rawRows) {
-            const payloadCell = row.cells?.[1];
-            const raw = String(payloadCell ?? '').trim();
-
-            if (!raw) {
-                invalidRows.push({
-                    sourceRowIndex: row.index,
-                    reason: 'row.cells[1] is empty.',
-                    sample: ''
-                });
+            const payloadCell = findJsonCell(row.cells || [], headers);
+            if (!payloadCell) {
+                invalidRows.push({ sourceRowIndex: row.index, reason: 'No JSON payload cell found in this row.', sample: '' });
                 continue;
             }
-
-            let parsed;
-            try {
-                parsed = JSON.parse(raw);
-            } catch (err) {
-                invalidRows.push({
-                    sourceRowIndex: row.index,
-                    reason: `row.cells[1] contains invalid JSON: ${err.message}`,
-                    sample: raw.slice(0, 180)
-                });
+            if (payloadCell.brokenJson) {
+                invalidRows.push({ sourceRowIndex: row.index, reason: `Column ${payloadCell.usedIndex + 1} contains invalid JSON.`, sample: payloadCell.raw.slice(0, 180) });
                 continue;
             }
-
             try {
-                parsedRows.push(normalizeRecord(parsed, row.index, raw));
+                parsedRows.push(normalizeRecord(payloadCell.parsed, row.index, payloadCell.raw));
             } catch (err) {
-                invalidRows.push({
-                    sourceRowIndex: row.index,
-                    reason: `JSON normalization failed: ${err.message}`,
-                    sample: raw.slice(0, 180)
-                });
+                invalidRows.push({ sourceRowIndex: row.index, reason: `JSON normalization failed: ${err.message}`, sample: payloadCell.raw.slice(0, 180) });
             }
         }
-
         parsedRows.sort((a, b) => b.sortTime - a.sortTime || b.sourceRowIndex - a.sourceRowIndex);
-
         return { parsedRows, invalidRows };
     }
+
     function latestValidLocation(records) {
         return records.find(r => r.location.valid) || null;
     }
 
     function renderMap(record) {
         if (!record) {
-            el('latestSummary').textContent = 'No valid GPS fix found in the latest rows.';
+            el('latestSummary').textContent = 'No valid GPS fix found in the latest rows. Map position was not updated.';
             el('dataStatus').textContent = 'No map fix';
             return;
         }
@@ -437,36 +905,103 @@
           ${escapeHtml(fmtDate(record.ts))}<br>
           Lat: ${lat.toFixed(6)}<br>
           Lon: ${lon.toFixed(6)}<br>
-          Sats: ${escapeHtml(fmt(record.gps?.sats))}<br>
-          Fix: ${escapeHtml(fmt(record.gps?.fix_quality))}
-        </div>
-      `;
+          Alt: ${escapeHtml(fmtNum(record.location.altM, 1, ' m'))}<br>
+          Sats: ${escapeHtml(fmt(record.location.satellites))}<br>
+          Fix: ${escapeHtml(fmt(record.location.fixQuality))}<br>
+          Track: ${escapeHtml(fmtNum(record.location.trackDeg, 1, '°'))}
+        </div>`;
 
         if (!state.marker) {
             state.marker = L.marker([lat, lon]).addTo(state.map);
         } else {
             state.marker.setLatLng([lat, lon]);
         }
-
         state.marker.bindPopup(popup);
         state.map.setView([lat, lon], CONFIG.mapZoomOnFix);
+        el('latestSummary').textContent = `${fmtDate(record.ts)} • ${lat.toFixed(6)}, ${lon.toFixed(6)} • ${record.location.satellites ?? '—'} satellites`;
+        el('dataStatus').textContent = record.errors.length ? 'Live with warnings' : 'Live data OK';
+    }
 
-        el('latestSummary').textContent = `${fmtDate(record.ts)} • ${lat.toFixed(6)}, ${lon.toFixed(6)} • ${record.gps?.sats ?? '—'} satellites`;
-        el('dataStatus').textContent = 'Live data OK';
+    function setMetricFill(id, value, min, max) {
+        const node = el(id);
+        if (!node) return;
+        const n = Number(value);
+        const pct = Number.isFinite(n) ? Math.max(0, Math.min(100, ((n - min) / (max - min)) * 100)) : 0;
+        node.style.setProperty('--metric-fill', `${pct}%`);
+    }
+
+
+    function renderSatelliteRadar(record) {
+        const radar = el('satelliteRadar');
+        const caption = el('radarCaption');
+        if (!radar || !caption) return;
+
+        radar.querySelectorAll('.satellite-dot').forEach(dot => dot.remove());
+
+        const satCountRaw = record?.location?.satellites;
+        const satCount = Math.max(0, Math.min(32, Math.floor(Number(satCountRaw))));
+        const hasValidFix = record?.location?.valid === true;
+
+        if (!satCount) {
+            caption.textContent = 'No satellite count';
+            return;
+        }
+
+        caption.textContent = `${satCount} satellite${satCount === 1 ? '' : 's'} in view${hasValidFix ? '' : ' • no valid fix'}`;
+
+        // The payload only gives a satellite count, not real satellite azimuth/elevation.
+        // These dots are therefore an evenly distributed visual plot, not true sky positions.
+        const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+        for (let i = 0; i < satCount; i++) {
+            const dot = document.createElement('span');
+            dot.className = 'satellite-dot';
+            dot.dataset.label = String(i + 1).padStart(2, '0');
+
+            const radiusPct = 16 + (Math.sqrt((i + 0.5) / satCount) * 38);
+            const angle = i * goldenAngle - Math.PI / 2;
+            const xPct = 50 + Math.cos(angle) * radiusPct;
+            const yPct = 50 + Math.sin(angle) * radiusPct;
+
+            dot.style.left = `${xPct}%`;
+            dot.style.top = `${yPct}%`;
+            dot.style.opacity = hasValidFix ? '1' : '.48';
+            radar.appendChild(dot);
+        }
     }
 
     function renderStats(latest) {
         el('statTs').textContent = latest ? fmtDate(latest.ts) : '—';
-        el('statTemp').textContent = latest ? fmtNum(Number(latest.dht?.temp_c), 1, ' °C') : '—';
-        el('statHumidity').textContent = latest ? fmtNum(Number(latest.dht?.humidity_pct), 1, ' %') : '—';
-        el('statPM25').textContent = latest && latest.pm?.PM2_5_ATM !== undefined ? `${latest.pm.PM2_5_ATM} µg/m³` : '—';
+        el('statTemp').textContent = latest ? fmtNum(latest.env.tempC, 1, ' °C') : '—';
+        el('statHumidity').textContent = latest ? fmtNum(latest.env.humidityPct, 1, ' %') : '—';
+        el('statPM25').textContent = latest ? fmtNum(latest.pm?.PM2_5_ATM, 0, ' µg/m³') : '—';
+        el('statCPU').textContent = latest ? fmtNum(latest.system.cpuPct, 1, ' %') : '—';
+        el('statCPUTemp').textContent = latest ? fmtNum(latest.system.cpuTempC, 1, ' °C') : '—';
+        el('statMem').textContent = latest ? `${fmtNum(latest.system.memUsedMB, 0, '')} / ${fmtNum(latest.system.memTotalMB, 0, '')} MB` : '—';
+        el('statUptime').textContent = latest ? fmtUptime(latest.system.uptimeSec) : '—';
+        el('statFix').textContent = latest?.location?.valid ? `${latest.location.satellites ?? '—'} sats` : (latest?.location?.reason || '—');
+
+        setMetricFill('metricTemp', latest?.env?.tempC, -10, 45);
+        setMetricFill('metricHumidity', latest?.env?.humidityPct, 0, 100);
+        setMetricFill('metricPM25', latest?.pm?.PM2_5_ATM, 0, 100);
+        setMetricFill('metricFix', latest?.location?.valid ? 100 : 0, 0, 100);
+        renderSatelliteRadar(latest);
     }
 
     function gpsCell(record) {
         if (!record.gps) return '<span class="badge text-bg-secondary small-badge">No GPS</span>';
-        if (!record.gps.has_fix) return '<span class="badge text-bg-warning small-badge">No fix</span>';
-        if (!record.location.valid) return '<span class="badge text-bg-danger small-badge">Bad coords</span>';
+        if (!record.location.hasFix) return '<span class="badge text-bg-warning small-badge">No fix</span>';
+        if (!record.location.valid) return `<span class="badge text-bg-danger small-badge">${escapeHtml(record.location.reason || 'Bad coords')}</span>`;
         return `<span class="mono">${record.location.lat.toFixed(5)}, ${record.location.lon.toFixed(5)}</span>`;
+    }
+
+    function powerCell(record) {
+        const p = record.power;
+        if (!p) return '—';
+        const active = ['undervolt_now', 'freq_capped_now', 'throttled_now', 'soft_temp_now'].filter(k => p[k] === true);
+        if (active.length) return `<span class="badge text-bg-danger small-badge">${escapeHtml(active.join(', '))}</span>`;
+        const occurred = ['undervolt_occurred', 'freq_capped_occurred', 'throttled_occurred', 'soft_temp_occurred'].filter(k => p[k] === true);
+        if (occurred.length) return `<span class="badge text-bg-warning small-badge">Past: ${escapeHtml(occurred.join(', '))}</span>`;
+        return `<span class="badge text-bg-success small-badge">OK</span> <span class="mono">${escapeHtml(p.raw_hex ?? '')}</span>`;
     }
 
     function rowStatusCell(record) {
@@ -481,25 +1016,27 @@
     function renderTable(records) {
         const tbody = el('rowsTable');
         const top10 = records.slice(0, 10);
-
         if (!top10.length) {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-secondary py-4">No valid JSON rows found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="14" class="text-center text-secondary py-4">No valid JSON rows found.</td></tr>';
             return;
         }
-
         tbody.innerHTML = top10.map(r => `
         <tr>
           <td>${escapeHtml(fmtDate(r.ts))}</td>
           <td>${gpsCell(r)}</td>
-          <td>${escapeHtml(fmtNum(Number(r.dht?.temp_c), 1, ' °C'))}</td>
-          <td>${escapeHtml(fmtNum(Number(r.dht?.humidity_pct), 1, ' %'))}</td>
-          <td>${escapeHtml(r.pm?.PM2_5_ATM ?? '—')}</td>
-          <td>${escapeHtml(fmtNum(Number(r.sys?.cpu_temp_c), 1, ' °C'))}</td>
-          <td class="mono">${escapeHtml(r.net?.public_ip || '—')}</td>
+          <td>${escapeHtml(fmtNum(r.env.tempC, 1, ' °C'))}</td>
+          <td>${escapeHtml(fmtNum(r.env.humidityPct, 1, ' %'))}</td>
+          <td>${escapeHtml(fmtNum(r.pm?.PM1_0_ATM, 0))}</td>
+          <td>${escapeHtml(fmtNum(r.pm?.PM2_5_ATM, 0))}</td>
+          <td>${escapeHtml(fmtNum(r.pm?.PM10_0_ATM, 0))}</td>
+          <td>${escapeHtml(fmtNum(r.system.cpuPct, 1, ' %'))}</td>
+          <td>${escapeHtml(fmtNum(r.system.cpuTempC, 1, ' °C'))}</td>
+          <td>${escapeHtml(fmtNum(r.system.memUsedMB, 0, ' MB'))}</td>
+          <td class="mono">${escapeHtml(r.system.publicIp || '—')}</td>
+          <td>${powerCell(r)}</td>
           <td>${r.errors.length ? `<span class="text-danger">${escapeHtml(r.errors.join(' | '))}</span>` : '<span class="text-success">None</span>'}</td>
           <td>${rowStatusCell(r)}</td>
-        </tr>
-      `).join('');
+        </tr>`).join('');
     }
 
     function renderMeta(parsedRows, invalidRows) {
@@ -508,11 +1045,7 @@
             setWarning('');
             return;
         }
-
-        const firstFew = invalidRows.slice(0, 3)
-            .map(r => `Row ${r.sourceRowIndex}: ${escapeHtml(r.reason)}`)
-            .join('<br>');
-
+        const firstFew = invalidRows.slice(0, 3).map(r => `Row ${r.sourceRowIndex}: ${escapeHtml(r.reason)}`).join('<br>');
         setWarning(`Some rows were skipped.<br>${firstFew}`);
     }
 
